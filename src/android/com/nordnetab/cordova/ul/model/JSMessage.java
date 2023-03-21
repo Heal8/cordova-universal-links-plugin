@@ -61,6 +61,10 @@ public class JSMessage extends JSONObject {
          * Launch url as it is
          */
         public static final String ORIGIN = "url";
+
+        public static final String LAUNCH_URL = "launchUrl";
+
+        public static final String INITIALING = "initializing";
     }
 
     private String eventName;
@@ -71,9 +75,9 @@ public class JSMessage extends JSONObject {
      * @param host        host entry that corresponds to the launching url
      * @param originalUri launch url
      */
-    public JSMessage(ULHost host, Uri originalUri) {
+    public JSMessage(ULHost host, Uri originalUri, String appLaunchUrl, boolean initializing) {
         setEventName(host, originalUri);
-        setMessageData(host, originalUri);
+        setMessageData(host, originalUri, appLaunchUrl, initializing);
     }
 
     /**
@@ -131,11 +135,12 @@ public class JSMessage extends JSONObject {
     /**
      * Fill data block with corresponding information.
      */
-    private void setMessageData(ULHost host, Uri originalUri) {
+    private void setMessageData(ULHost host, Uri originalUri, String appLaunchUrl, boolean initializing) {
         final JSONObject dataObject = new JSONObject();
 
         try {
             setOriginalUrl(dataObject, originalUri);
+            setExtraData(dataObject, appLaunchUrl, initializing);
             setHostData(dataObject, host);
             setPathData(dataObject, originalUri);
 
@@ -169,6 +174,12 @@ public class JSMessage extends JSONObject {
 
         final JSONObject queryParams = getQueryParamsFromUri(originalUri);
         dataObject.put(JSDataKeys.PARAMS, queryParams);
+    }
+
+    private void setExtraData(JSONObject dataObject, String appLaunchUrl, boolean initialing) throws JSONException {
+        dataObject
+            .put(JSDataKeys.LAUNCH_URL, appLaunchUrl)
+            .put(JSDataKeys.INITIALING, initialing);
     }
 
     /**

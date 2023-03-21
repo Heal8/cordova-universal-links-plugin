@@ -16,6 +16,8 @@
     NSArray *_supportedHosts;
     CDVPluginResult *_storedEvent;
     NSMutableDictionary<NSString *, NSString *> *_subscribers;
+    BOOL _initializing;
+    NSString *_launchUrl;
 }
 
 @end
@@ -29,6 +31,16 @@
     // Can be used for testing.
     // Just uncomment, close the app and reopen it. That will simulate application launch from the link.
 //    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onResume:) name:UIApplicationWillEnterForegroundNotification object:nil];
+    self->_initializing = YES;
+    self->_launchUrl = @"";
+    NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
+    if (prefs != nil) {
+        NSString *launchUrl = [prefs stringForKey:@"AppUniversalLaunchingUrl"];
+        if (launchUrl != nil) {
+            self->_launchUrl = launchUrl;
+            [prefs removeObjectForKey:@"AppUniversalLaunchingUrl"];
+        }
+    }
 }
 
 //- (void)onResume:(NSNotification *)notification {
@@ -61,6 +73,8 @@
     
     [self storeEventWithHost:host originalURL:launchURL];
     
+    self->_initializing = NO;
+
     return YES;
 }
 
@@ -103,7 +117,7 @@
  *  @param originalUrl launch url
  */
 - (void)storeEventWithHost:(CULHost *)host originalURL:(NSURL *)originalUrl {
-    _storedEvent = [CDVPluginResult resultWithHost:host originalURL:originalUrl];
+    _storedEvent = [CDVPluginResult resultWithHost:host originalURL:originalUrl launchUrl:self->_launchUrl initializing:self->_initializing];
     [self tryToConsumeEvent];
 }
 
@@ -153,6 +167,8 @@
 #pragma mark Methods, available from JavaScript side
 
 - (void)jsSubscribeForEvent:(CDVInvokedUrlCommand *)command {
+    self->_initializing = NO;
+
     NSString *eventName = [command eventName];
     if (eventName.length == 0) {
         return;
@@ -160,9 +176,15 @@
     
     _subscribers[eventName] = command.callbackId;
     [self tryToConsumeEvent];
+
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
+    [result setKeepCallbackAsBool:YES];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 - (void)jsUnsubscribeFromEvent:(CDVInvokedUrlCommand *)command {
+    self->_initializing = NO;
+
     NSString *eventName = [command eventName];
     if (eventName.length == 0) {
         return;
@@ -171,6 +193,13 @@
     [_subscribers removeObjectForKey:eventName];
 }
 
+- (void)jsGetLaunchUrl:(CDVInvokedUrlCommand *)command {
+    self->_initializing = NO;
 
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:@{
+        @"url" : self->_launchUrl
+    }];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
 
 @end

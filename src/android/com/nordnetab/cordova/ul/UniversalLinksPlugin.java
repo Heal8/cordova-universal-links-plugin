@@ -17,6 +17,7 @@ import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CordovaWebView;
 import org.apache.cordova.PluginResult;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +41,8 @@ public class UniversalLinksPlugin extends CordovaPlugin {
     // stored message, that is captured on application launch
     private JSMessage storedMessage;
 
+    private String appLaunchUrl;
+
     // region Public API
 
     @Override
@@ -52,7 +55,16 @@ public class UniversalLinksPlugin extends CordovaPlugin {
             subscribers = new HashMap<String, CallbackContext>();
         }
 
-        handleIntent(cordova.getActivity().getIntent());
+        appLaunchUrl = "";
+        Intent launchIntent = cordova.getActivity().getIntent();
+        if (launchIntent != null) {
+            Uri uri = launchIntent.getData();
+            if (uri != null) {
+                appLaunchUrl = uri.toString();
+            }
+        }
+
+        handleIntent(launchIntent, true);
     }
 
     @Override
@@ -62,6 +74,8 @@ public class UniversalLinksPlugin extends CordovaPlugin {
             subscribeForEvent(args, callbackContext);
         } else if (JSAction.UNSUBSCRIBE.equals(action)) {
             unsubscribeFromEvent(args);
+        } else if (JSAction.GET_LAUNCH_URL.equals(action)) {
+            getLaunchUrl(callbackContext);
         } else {
             isHandled = false;
         }
@@ -71,7 +85,7 @@ public class UniversalLinksPlugin extends CordovaPlugin {
 
     @Override
     public void onNewIntent(Intent intent) {
-        handleIntent(intent);
+        handleIntent(intent, false);
     }
 
     // endregion
@@ -92,6 +106,10 @@ public class UniversalLinksPlugin extends CordovaPlugin {
 
         subscribers.put(eventName, callbackContext);
         tryToConsumeEvent();
+
+        final PluginResult result = new PluginResult(PluginResult.Status.OK, "");
+        result.setKeepCallback(true);
+        callbackContext.sendPluginResult(result);
     }
 
     /**
@@ -161,6 +179,14 @@ public class UniversalLinksPlugin extends CordovaPlugin {
         callback.sendPluginResult(result);
     }
 
+    private void getLaunchUrl(CallbackContext callbackContext) {
+        try {
+            callbackContext.success(new JSONObject().put("url", appLaunchUrl));
+        } catch (JSONException e) {
+            callbackContext.error(e.getMessage());
+        }
+    }
+
     // endregion
 
     // region Intent handling
@@ -171,7 +197,7 @@ public class UniversalLinksPlugin extends CordovaPlugin {
      *
      * @param intent launch intent
      */
-    private void handleIntent(Intent intent) {
+    private void handleIntent(Intent intent, boolean initializing) {
         if (intent == null || supportedHosts == null || supportedHosts.size() == 0) {
             return;
         }
@@ -193,7 +219,7 @@ public class UniversalLinksPlugin extends CordovaPlugin {
         }
 
         // store message and try to consume it
-        storedMessage = new JSMessage(host, launchUri);
+        storedMessage = new JSMessage(host, launchUri, appLaunchUrl, initializing);
         tryToConsumeEvent();
     }
 

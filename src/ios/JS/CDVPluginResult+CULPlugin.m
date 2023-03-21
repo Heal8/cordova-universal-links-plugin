@@ -34,12 +34,16 @@ static NSString *const ORIGIN_ATTRIBUTE = @"url";
 // query parameters from the url; data after '?'
 static NSString *const URL_PARAMS_ATTRIBUTE = @"params";
 
+static NSString *const LAUNCH_URL_ATTRIBUTE = @"launchUrl";
+
+static NSString *const INITIALIZING_ATTRIBUTE = @"initializing";
+
 @implementation CDVPluginResult (CULPlugin)
 
 #pragma mark Public API
 
-+ (instancetype)resultWithHost:(CULHost *)host originalURL:(NSURL *)originalURL {
-    NSDictionary *message = [self prepareMessageForHost:host originalURL:originalURL];
++ (instancetype)resultWithHost:(CULHost *)host originalURL:(NSURL *)originalURL launchUrl:(NSString *)launchUrl initializing:(BOOL)initializing {
+    NSDictionary *message = [self prepareMessageForHost:host originalURL:originalURL launchUrl:launchUrl initializing:initializing];
     
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:message];
     [result setKeepCallbackAsBool:YES];
@@ -77,7 +81,7 @@ static NSString *const URL_PARAMS_ATTRIBUTE = @"params";
  *
  *  @return messasge dictionary
  */
-+ (NSDictionary *)prepareMessageForHost:(CULHost *)host originalURL:(NSURL *)originalURL {
++ (NSDictionary *)prepareMessageForHost:(CULHost *)host originalURL:(NSURL *)originalURL launchUrl:(NSString *)launchUrl initializing:(BOOL)initializing {
     NSURLComponents *urlComponents = [NSURLComponents componentsWithURL:originalURL resolvingAgainstBaseURL:YES];
     NSMutableDictionary *messageDict = [[NSMutableDictionary alloc] init];
     
@@ -86,9 +90,9 @@ static NSString *const URL_PARAMS_ATTRIBUTE = @"params";
     [messageDict setObject:eventName forKey:EVENT];
     
     // set event details
-    NSDictionary *data = [self getDataDictionaryForURLComponents:urlComponents];
+    NSDictionary *data = [self getDataDictionaryForURLComponents:urlComponents launchUrl:launchUrl initializing:initializing];
     [messageDict setObject:data forKey:DATA];
-    
+
     return messageDict;
 }
 
@@ -127,7 +131,7 @@ static NSString *const URL_PARAMS_ATTRIBUTE = @"params";
  *
  *  @return dictionary with url information
  */
-+ (NSDictionary *)getDataDictionaryForURLComponents:(NSURLComponents *)originalURLComponents {
++ (NSDictionary *)getDataDictionaryForURLComponents:(NSURLComponents *)originalURLComponents launchUrl:(NSString *)launchUrl initializing:(BOOL)initializing {
     NSMutableDictionary *dataDict = [[NSMutableDictionary alloc] init];
     
     NSString *originUrl = originalURLComponents.URL.absoluteString;
@@ -141,6 +145,9 @@ static NSString *const URL_PARAMS_ATTRIBUTE = @"params";
     [dataDict setObject:path forKey:PATH_ATTRIBUTE];
     [dataDict setObject:scheme forKey:SCHEME_ATTRIBUTE];
     [dataDict setObject:hash forKey:HASH_ATTRIBUTE];
+    [dataDict setObject:launchUrl forKey:LAUNCH_URL_ATTRIBUTE];
+    NSString *initValue = initializing ? @"true" : @"false";
+    [dataDict setObject:initValue forKey:INITIALIZING_ATTRIBUTE];
     
     // set query params
     NSArray<NSURLQueryItem *> *queryItems = originalURLComponents.queryItems;

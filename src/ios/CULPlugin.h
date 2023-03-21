@@ -26,6 +26,9 @@
  */
 - (void)jsUnsubscribeFromEvent:(CDVInvokedUrlCommand *)command;
 
+
+- (void)jsGetLaunchUrl:(CDVInvokedUrlCommand *)command;
+
 /**
  *  Try to hanlde application launch when user clicked on the link.
  *

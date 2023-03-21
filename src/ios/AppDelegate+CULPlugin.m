@@ -29,4 +29,28 @@ static NSString *const PLUGIN_NAME = @"UniversalLinks";
     return [plugin handleUserActivity:userActivity];
 }
 
+- (BOOL)application:(UIApplication *)application willFinishLaunchingWithOptions:(NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions {
+    if (launchOptions != nil) {
+        NSDictionary *userActivityDictionary = [launchOptions objectForKey:UIApplicationLaunchOptionsUserActivityDictionaryKey];
+        if (userActivityDictionary != nil) {
+            __block NSString *url = nil;
+            [userActivityDictionary enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
+                if (url == nil && obj != nil && [obj isKindOfClass:[NSUserActivity class]]) {
+                    NSUserActivity *userActivity = (NSUserActivity *)obj;
+                    if (userActivity.webpageURL != nil) {
+                        url = userActivity.webpageURL.absoluteString;
+                    }
+                }
+            }];
+            if (url != nil) {
+                NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
+                if (prefs != nil) {
+                    [prefs setObject:url forKey:@"AppUniversalLaunchingUrl"];
+                }
+            }
+        }
+    }
+    return YES;
+}
+
 @end

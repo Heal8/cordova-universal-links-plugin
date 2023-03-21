@@ -20,7 +20,7 @@
  *
  *  @return instance of the CDVPluginResult
  */
-+ (instancetype)resultWithHost:(CULHost *)host originalURL:(NSURL *)originalURL;
++ (instancetype)resultWithHost:(CULHost *)host originalURL:(NSURL *)originalURL launchUrl:(NSString *)launchUrl initializing:(BOOL)initializing;
 
 - (BOOL)isResultForEvent:(NSString *)eventName;
 

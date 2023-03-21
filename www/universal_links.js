@@ -10,7 +10,8 @@ var exec = require('cordova/exec'),
 // Plugin methods on the native side that can be called from JavaScript
 pluginNativeMethod = {
   SUBSCRIBE: 'jsSubscribeForEvent',
-  UNSUBSCRIBE: 'jsUnsubscribeFromEvent'
+  UNSUBSCRIBE: 'jsUnsubscribeFromEvent',
+  GET_LAUNCH_URL: 'jsGetLaunchUrl'
 };
 
 var universalLinks = {
@@ -25,18 +26,27 @@ var universalLinks = {
   subscribe: function(eventName, callback) {
     if (!callback) {
       console.warn('Universal Links: can\'t subscribe to event without a callback');
-      return;
+      return Promise.reject("no callback");
     }
 
     if (!eventName) {
       eventName = DEFAULT_EVENT_NAME;
     }
 
-    var innerCallback = function(msg) {
-      callback(msg.data);
-    };
+    return new Promise((resolve, reject) => {
+      var innerCallback = function(msg) {
+        if (msg !== "") {
+          callback(msg.data);
+        }
+        resolve();
+      };
 
-    exec(innerCallback, null, PLUGIN_NAME, pluginNativeMethod.SUBSCRIBE, [eventName]);
+      var errorCallback = function(err) {
+        reject(err);
+      };
+
+      exec(innerCallback, errorCallback, PLUGIN_NAME, pluginNativeMethod.SUBSCRIBE, [eventName]);
+    });
   },
 
   /**
@@ -50,6 +60,17 @@ var universalLinks = {
     }
 
     exec(null, null, PLUGIN_NAME, pluginNativeMethod.UNSUBSCRIBE, [eventName]);
+  },
+
+  getLaunchUrl: function() {
+    return new Promise((resolve, reject) => {
+      exec(data => {
+        resolve(data.url);
+      }, error => {
+        reject(error);
+      },
+      PLUGIN_NAME, pluginNativeMethod.GET_LAUNCH_URL, []);
+    });
   }
 };
 

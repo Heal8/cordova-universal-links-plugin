@@ -16,4 +16,6 @@ public final class JSAction {
      * Unsubscribe from event.
      */
     public static final String UNSUBSCRIBE = "jsUnsubscribeFromEvent";
+
+    public static final String GET_LAUNCH_URL = "jsGetLaunchUrl";
 }
