@@ -9,7 +9,7 @@ Which is:
 var path = require('path');
 var compare = require('node-version-compare');
 var ConfigXmlHelper = require('../configXmlHelper.js');
-var IOS_DEPLOYMENT_TARGET = '8.0';
+var IOS_DEPLOYMENT_TARGET = '11.0';
 var COMMENT_KEY = /_comment$/;
 var context;
 
