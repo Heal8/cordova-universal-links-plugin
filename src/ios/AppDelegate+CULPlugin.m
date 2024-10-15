@@ -6,6 +6,7 @@
 
 #import "AppDelegate+CULPlugin.h"
 #import "CULPlugin.h"
+#import <objc/runtime.h>
 
 /**
  *  Plugin name in config.xml
@@ -13,6 +14,37 @@
 static NSString *const PLUGIN_NAME = @"UniversalLinks";
 
 @implementation AppDelegate (CULPlugin)
+
+// its dangerous to override a method from within a category.
+// Instead we will use method swizzling. we set this up in the load call.
++ (void)load
+{
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        Class class = [self class];
+
+        SEL originalSelector = @selector(application:willFinishLaunchingWithOptions:);
+        SEL swizzledSelector = @selector(cvdCULPluginApplication:willFinishLaunchingWithOptions:);
+
+        Method original = class_getInstanceMethod(class, originalSelector);
+        Method swizzled = class_getInstanceMethod(class, swizzledSelector);
+
+        BOOL didAddMethod =
+        class_addMethod(class,
+                        originalSelector,
+                        method_getImplementation(swizzled),
+                        method_getTypeEncoding(swizzled));
+
+        if (didAddMethod) {
+            class_replaceMethod(class,
+                                swizzledSelector,
+                                method_getImplementation(original),
+                                method_getTypeEncoding(original));
+        } else {
+            method_exchangeImplementations(original, swizzled);
+        }
+    });
+}
 
 - (BOOL)application:(UIApplication *)application continueUserActivity:(NSUserActivity *)userActivity restorationHandler:(void (^)(NSArray *))restorationHandler {
     // ignore activities that are not for Universal Links
@@ -29,7 +61,7 @@ static NSString *const PLUGIN_NAME = @"UniversalLinks";
     return [plugin handleUserActivity:userActivity];
 }
 
-- (BOOL)application:(UIApplication *)application willFinishLaunchingWithOptions:(NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions {
+- (BOOL)cvdCULPluginApplication:(UIApplication *)application willFinishLaunchingWithOptions:(NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions {
     if (launchOptions != nil) {
         NSDictionary *userActivityDictionary = [launchOptions objectForKey:UIApplicationLaunchOptionsUserActivityDictionaryKey];
         if (userActivityDictionary != nil) {
@@ -50,7 +82,7 @@ static NSString *const PLUGIN_NAME = @"UniversalLinks";
             }
         }
     }
-    return YES;
+    return [self cvdCULPluginApplication:application willFinishLaunchingWithOptions:launchOptions];
 }
 
 @end
