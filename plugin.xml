@@ -46,6 +46,9 @@
     <source-file src="src/ios/AppDelegate+CULPlugin.m"/>
     <header-file src="src/ios/AppDelegate+CULPlugin.h"/>
 
+    <source-file src="src/ios/CDVSceneDelegate+CULPlugin.m"/>
+    <header-file src="src/ios/CDVSceneDelegate+CULPlugin.h"/>
+
 <!-- sources for JS folder -->
     <source-file src="src/ios/JS/CDVPluginResult+CULPlugin.m" target-dir="JS/"/>
     <header-file src="src/ios/JS/CDVPluginResult+CULPlugin.h" target-dir="JS/"/>
