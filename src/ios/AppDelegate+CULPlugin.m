@@ -46,6 +46,9 @@ static NSString *const PLUGIN_NAME = @"UniversalLinks";
                 NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
                 if (prefs != nil) {
                     [prefs setObject:url forKey:@"AppUniversalLaunchingUrl"];
+                    // stamped so the plugin can tell this url apart from one left behind by an
+                    // earlier launch that never dispatched it (see consumePendingLaunchUrl)
+                    [prefs setDouble:[[NSDate date] timeIntervalSince1970] forKey:@"AppUniversalLaunchingUrlTime"];
                 }
             }
         }

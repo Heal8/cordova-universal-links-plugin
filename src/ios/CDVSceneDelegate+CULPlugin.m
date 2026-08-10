@@ -32,7 +32,11 @@ static NSString *const PLUGIN_NAME = @"UniversalLinks";
     // Handle universal links from cold launch
     for (NSUserActivity *userActivity in connectionOptions.userActivities) {
         if ([userActivity.activityType isEqualToString:NSUserActivityTypeBrowsingWeb] && userActivity.webpageURL != nil) {
-            [[NSUserDefaults standardUserDefaults] setObject:userActivity.webpageURL.absoluteString forKey:@"AppUniversalLaunchingUrl"];
+            NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
+            [prefs setObject:userActivity.webpageURL.absoluteString forKey:@"AppUniversalLaunchingUrl"];
+            // stamped so the plugin can tell this url apart from one left behind by an earlier
+            // launch that never got as far as dispatching it (see consumePendingLaunchUrl)
+            [prefs setDouble:[[NSDate date] timeIntervalSince1970] forKey:@"AppUniversalLaunchingUrlTime"];
             break;
         }
     }

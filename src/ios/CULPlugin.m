@@ -12,6 +12,15 @@
 #import "CDVInvokedUrlCommand+CULPlugin.h"
 #import "CULConfigJsonParser.h"
 
+/**
+ *  Keys the launching url is stashed under by the app/scene delegate, and how long that stash stays
+ *  valid. NSUserDefaults survives the process, so the timestamp is what keeps a url stashed by one
+ *  launch from being dispatched by a later, unrelated one (see consumePendingLaunchUrl).
+ */
+static NSString *const LAUNCH_URL_KEY = @"AppUniversalLaunchingUrl";
+static NSString *const LAUNCH_URL_TIME_KEY = @"AppUniversalLaunchingUrlTime";
+static const NSTimeInterval LAUNCH_URL_MAX_AGE = 120;
+
 @interface CULPlugin() {
     NSArray *_supportedHosts;
     CDVPluginResult *_storedEvent;
@@ -33,14 +42,7 @@
 //    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onResume:) name:UIApplicationWillEnterForegroundNotification object:nil];
     self->_initializing = YES;
     self->_launchUrl = @"";
-    NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
-    if (prefs != nil) {
-        NSString *launchUrl = [prefs stringForKey:@"AppUniversalLaunchingUrl"];
-        if (launchUrl != nil) {
-            self->_launchUrl = launchUrl;
-            [prefs removeObjectForKey:@"AppUniversalLaunchingUrl"];
-        }
-    }
+    [self consumePendingLaunchUrl];
 }
 
 //- (void)onResume:(NSNotification *)notification {
@@ -110,6 +112,63 @@
 }
 
 /**
+ *  Turn a cold-launch url into a stored event.
+ *
+ *  On the UIScene lifecycle (cordova-ios 8+) the launch activity is only ever handed to
+ *  scene:willConnectToSession:, which stashes the url in NSUserDefaults - continueUserActivity is
+ *  never called for it, so handleUserActivity: never runs and nothing dispatches the event. Without
+ *  this the url was read into _launchUrl as a payload field only, and a link that cold-started the
+ *  app was silently dropped (the app just opened on its default screen).
+ *
+ *  Called both from pluginInitialize and from the JS subscribe, because the ordering between the two
+ *  is not guaranteed: this plugin is onload=true, so pluginInitialize runs inside the original
+ *  scene:willConnectToSession: - i.e. before the stash is written. The subscribe call always happens
+ *  afterwards. The key is removed on read, so whichever runs first wins and the event fires once.
+ */
+- (void)consumePendingLaunchUrl {
+    NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
+    if (prefs == nil) {
+        return;
+    }
+
+    NSString *launchUrl = [prefs stringForKey:LAUNCH_URL_KEY];
+    if (launchUrl.length == 0) {
+        return;
+    }
+
+    // read the age before dropping the stash, and drop it either way: a url that is not dispatched
+    // now will never be, and leaving it behind is what would let it fire on a later launch
+    NSTimeInterval stashedAt = [prefs doubleForKey:LAUNCH_URL_TIME_KEY];
+    NSTimeInterval age = [[NSDate date] timeIntervalSince1970] - stashedAt;
+    [prefs removeObjectForKey:LAUNCH_URL_KEY];
+    [prefs removeObjectForKey:LAUNCH_URL_TIME_KEY];
+
+    // the stash outlives the process: if the app is killed between the scene stashing the url and
+    // the web view subscribing, it would otherwise still be sitting there on the next, ordinary
+    // launch and send the user to a screen they never asked to open. Only a url stashed by the
+    // launch we are currently serving is worth dispatching - anything without a timestamp (an
+    // older build), from the future (clock moved) or too old is dropped.
+    if (stashedAt <= 0 || age < 0 || age > LAUNCH_URL_MAX_AGE) {
+        return;
+    }
+
+    self->_launchUrl = launchUrl;
+
+    NSURL *url = [NSURL URLWithString:launchUrl];
+    if (url == nil) {
+        return;
+    }
+
+    [self localInit];
+    CULHost *host = [self findHostByURL:url];
+    if (host == nil) {
+        return;
+    }
+
+    [self storeEventWithHost:host originalURL:url];
+}
+
+/**
  *  Store event data for future use.
  *  If we are resuming the app - try to consume it.
  *
@@ -167,6 +226,11 @@
 #pragma mark Methods, available from JavaScript side
 
 - (void)jsSubscribeForEvent:(CDVInvokedUrlCommand *)command {
+    // recovered here as well as in pluginInitialize - on the scene lifecycle the stash is written
+    // after this plugin has already been initialized, so subscribe time is the first point at which
+    // a cold-launch url is reliably visible. Kept ahead of the _initializing reset so the event that
+    // reaches JS still reports initializing:YES, matching a real cold start.
+    [self consumePendingLaunchUrl];
     self->_initializing = NO;
 
     NSString *eventName = [command eventName];
